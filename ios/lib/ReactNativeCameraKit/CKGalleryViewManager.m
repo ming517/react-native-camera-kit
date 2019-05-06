@@ -39,9 +39,10 @@ typedef void (^CompletionBlock)(BOOL success);
 @property (nonatomic, strong) NSNumber *getUrlOnTapImage;
 @property (nonatomic, strong) NSNumber *autoSyncSelection;
 @property (nonatomic, strong) NSString *imageQualityOnTap;
+@property (nonatomic, strong) NSNumber *maximumSelect;
 @property (nonatomic, copy) RCTDirectEventBlock onTapImage;
 @property (nonatomic, copy) RCTDirectEventBlock onRemoteDownloadChanged;
-
+@property (nonatomic, copy) RCTDirectEventBlock onMaximumSelected;
 
 @property (nonatomic, strong) UICollectionView *collectionView;
 @property (nonatomic, strong) GalleryData *galleryData;
@@ -82,6 +83,7 @@ typedef void (^CompletionBlock)(BOOL success);
 @property (nonatomic)         BOOL collectionViewIsScrolling;
 @property (nonatomic, weak)   CKGalleryCollectionViewCell *lastPressedCell;
 
+@property int totalSelected;
 @end
 
 static NSString * const CellReuseIdentifier = @"Cell";
@@ -93,7 +95,7 @@ static NSString * const CustomCellReuseIdentifier = @"CustomCell";
     self = [super initWithFrame:frame];
     
     if (self) {
-        
+        self.totalSelected = 0;
         self.selectedImages = [[NSMutableArray alloc] init];
         self.imageManager = [[PHCachingImageManager alloc] init];
         
@@ -552,7 +554,7 @@ static NSString * const CustomCellReuseIdentifier = @"CustomCell";
 
 
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
-    
+   
     NSInteger galleryDataIndex = indexPath.row;
     if (self.customButtonStyle) {
         galleryDataIndex--;
@@ -571,6 +573,15 @@ static NSString * const CustomCellReuseIdentifier = @"CustomCell";
         NSMutableDictionary *assetDictionary = (NSMutableDictionary*)self.galleryData.data[galleryDataIndex];
         PHAsset *asset = assetDictionary[@"asset"];
         NSNumber *isSelectedNumber = assetDictionary[@"isSelected"];
+        
+        if(self.maximumSelect.integerValue > 0 && !isSelectedNumber.boolValue && self.totalSelected >= self.maximumSelect.integerValue) {
+            if(self.onMaximumSelected) {
+                self.onMaximumSelected(nil);
+            }
+            return;
+        }
+        
+        self.totalSelected += !isSelectedNumber.boolValue ? 1 : -1;
         assetDictionary[@"isSelected"] = [NSNumber numberWithBool:!(isSelectedNumber.boolValue)];
         
         [self downloadImageFromICloudIfNeeded:asset cell:ckCell completion:^(BOOL success) {
@@ -736,7 +747,10 @@ RCT_EXPORT_MODULE()
     return self.galleryView;
 }
 
-
+// extra props added by @Ming
+RCT_EXPORT_VIEW_PROPERTY(maximumSelect, NSNumber);
+RCT_EXPORT_VIEW_PROPERTY(onMaximumSelected, RCTDirectEventBlock);
+// end extra
 RCT_EXPORT_VIEW_PROPERTY(albumName, NSString);
 RCT_EXPORT_VIEW_PROPERTY(minimumLineSpacing, NSNumber);
 RCT_EXPORT_VIEW_PROPERTY(minimumInteritemSpacing, NSNumber);
